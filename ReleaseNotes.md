@@ -2,6 +2,10 @@
 
 # Release Notes tiger-mail-extension
 
+## Release 4.1.1
+
+* Update to tiger 4.1.1
+
 ## Release 4.0.10
 
 ### changed
