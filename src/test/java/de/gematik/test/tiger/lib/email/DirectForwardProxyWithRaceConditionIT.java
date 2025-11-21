@@ -120,10 +120,11 @@ public class DirectForwardProxyWithRaceConditionIT {
 
     final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
     Files.write(new File("target/pop3Replay.html").toPath(), html.getBytes());
-    assertThat(
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+            .until(() ->
             tigerProxy.getRbelMessagesList().stream()
-                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message))
-        .hasSize(3); // flaky! wait for correct number
+                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message).count() == 3);
   }
 
   @SneakyThrows
@@ -148,10 +149,11 @@ public class DirectForwardProxyWithRaceConditionIT {
     final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
     Files.write(new File("target/pop3Replay.html").toPath(), html.getBytes());
 
-    assertThat(
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() ->
             tigerProxy.getRbelMessagesList().stream()
-                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message))
-        .hasSize(3);
+                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message).count() == 3);
   }
 
   @SneakyThrows
@@ -216,13 +218,14 @@ public class DirectForwardProxyWithRaceConditionIT {
 
     final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
     Files.write(new File("target/mailReplay.html").toPath(), html.getBytes());
-    assertThat(
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() ->
             tigerProxy.getRbelMessagesList().stream()
                 .filter(
                     msg ->
                         msg.hasFacet(RbelSmtpCommandFacet.class)
-                            || msg.hasFacet(RbelSmtpResponseFacet.class)))
-        .hasSize(14);
+                            || msg.hasFacet(RbelSmtpResponseFacet.class)).count() == 14);
   }
 
   @SneakyThrows
@@ -250,10 +253,11 @@ public class DirectForwardProxyWithRaceConditionIT {
 
     final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
     Files.write(new File("target/pop3.html").toPath(), html.getBytes());
-    assertThat(
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() ->
             tigerProxy.getRbelMessagesList().stream()
-                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message))
-        .hasSize(5);
+                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message).count() == 5);
   }
 
 
