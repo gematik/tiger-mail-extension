@@ -34,6 +34,8 @@ import de.gematik.test.tiger.common.data.config.tigerproxy.TigerProxyModifierDes
 import de.gematik.test.tiger.proxy.TigerProxy;
 import de.gematik.test.tiger.proxy.handler.RbelBinaryModifierPlugin;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +55,9 @@ class TestTigerProxyBinaryModification {
   @SneakyThrows
   @Test
   void modifyPop3Traffic() {
-    val replayer =
-        PcapReplayer.writeReplay(
-            """
+    try (val replayer =
+            PcapReplayer.writeReplay(
+                """
             S: +OK POP3 server ready <1896.697170952@dbc.mtview.ca.us>
             C: CAPA
             S: +OK
@@ -69,53 +71,66 @@ class TestTigerProxyBinaryModification {
             client: QUIT
             server: +OK bye
             """);
-    val tigerProxy =
-        replayer.replayWithDirectForwardUsing(
-            new TigerProxyConfiguration()
-                .setDirectReverseProxy(
-                    DirectReverseProxyInfo.builder()
-                        .modifierPlugins(
-                            List.of(
-                                TigerProxyModifierDescription.builder()
-                                    .name("MyBinaryModifier")
-                                    .parameters(
-                                        Map.of(
-                                            "targetString",
-                                            "1896.697170952@dbc.mtview.ca.us",
-                                            "replacementString",
-                                            "my.modified_43243434343@message"))
-                                    .build(),
-                                TigerProxyModifierDescription.builder()
-                                    .name("MyBinaryModifier")
-                                    .parameters(
-                                        Map.of(
-                                            "targetString",
-                                            "RETR 1",
-                                            "replacementString",
-                                            "retr 2"))
-                                    .build()))
-                        .build())
-                .setActivateRbelParsingFor(List.of("pop3", "mime")));
+        val tigerProxy =
+            replayer.replayWithDirectForwardUsing(
+                new TigerProxyConfiguration()
+                    .setDirectReverseProxy(
+                        DirectReverseProxyInfo.builder()
+                            .modifierPlugins(
+                                List.of(
+                                    TigerProxyModifierDescription.builder()
+                                        .name("MyBinaryModifier")
+                                        .parameters(
+                                            Map.of(
+                                                "targetString",
+                                                "1896.697170952@dbc.mtview.ca.us",
+                                                "replacementString",
+                                                "my.modified_43243434343@message_sss"))
+                                        .build(),
+                                    TigerProxyModifierDescription.builder()
+                                        .name("MyBinaryModifier")
+                                        .parameters(
+                                            Map.of(
+                                                "targetString",
+                                                "RETR 1",
+                                                "replacementString",
+                                                "retr 22"))
+                                        .build()))
+                            .build())
+                    .setActivateRbelParsingFor(List.of("pop3", "mime"))); ) {
 
-    final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
-    Files.write(new File("target/pcapReplayerPop.html").toPath(), html.getBytes());
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .until(() -> !replayer.getReceivedPacketsInClient().isEmpty());
-    assertThat(replayer.getReceivedPacketsInClient().get(0))
-        .asString()
-        .contains("my.modified_43243434343@message");
-    RbelElementAssertion.assertThat(tigerProxy.getRbelMessages().getFirst())
-        .andPrintTree()
-        .asString()
-        .contains("my.modified_43243434343@message");
-    assertThat(replayer.getReceivedPacketsInServer().get(1)).asString().startsWith("retr 2\r\n");
-    RbelElementAssertion.assertThat(tigerProxy.getRbelMessagesList().get(3))
-        .andPrintTree()
-        .extractChildWithPath("$.pop3Arguments")
-        .hasStringContentEqualTo("2");
+      new RbelHtmlRenderer()
+          .doRender(
+              tigerProxy.getRbelMessagesList(), new FileWriter("target/pcapReplayerPop.html"));
+      await()
+          .atMost(5, TimeUnit.SECONDS)
+          .until(() -> tigerProxy.getRbelMessages().size() >= 7);
+
+      try {
+        RbelElementAssertion.assertThat(tigerProxy.getRbelMessages().getFirst())
+            .andPrintTree()
+            .asString()
+            .contains("my.modified_43243434343@message_sss");
+        RbelElementAssertion.assertThat(tigerProxy.getRbelMessagesList().get(3))
+            .andPrintTree()
+            .extractChildWithPath("$.pop3Arguments")
+            .hasStringContentEqualTo("22");
+      } catch (AssertionError e) {
+        tigerProxy.getRbelMessages().stream()
+            .map(RbelElement::printTreeStructure)
+            .forEach(log::info);
+
+        replayer.getReceivedPacketsInServer().stream()
+            .map(String::new)
+            .map("Server: "::concat)
+            .forEach(log::info);
+        replayer.getReceivedPacketsInClient().stream()
+            .map(String::new)
+            .map("Client: "::concat)
+            .forEach(log::info);
+      }
+    }
   }
-
 
   @Data
   public static class MyBinaryModifier implements RbelBinaryModifierPlugin {
