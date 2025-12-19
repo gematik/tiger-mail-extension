@@ -2,7 +2,13 @@
 
 # Release Notes tiger-mail-extension
 
-## Release 4.1.1
+## Release 4.1.12
+
+## Features
+
+* TGR-1995: add automatic release pipeline triggered from tiger pipeline
+
+## Release 4.1.11
 
 * Update to tiger 4.1.1
 
