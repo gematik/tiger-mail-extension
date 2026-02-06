@@ -75,9 +75,8 @@ public class RbelPop3CommandConverter extends RbelConverterPlugin {
     var commandBytes = command.name().getBytes(StandardCharsets.UTF_8);
     if (command != RbelPop3Command.CAPA) {
       var previousMessage =
-          context.findPreviousMessageInSameConnectionAs(
-              element,
-              e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
+          getPreviousMessage(element, context)
+              .filter(e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
       if (previousMessage.isPresent()) {
         var message = previousMessage.get();
         if (!(message.hasFacet(RbelPop3CommandFacet.class)

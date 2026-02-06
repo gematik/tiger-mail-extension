@@ -20,8 +20,6 @@
  */
 package de.gematik.test.tiger.lib.email;
 
-import static de.gematik.rbellogger.data.RbelElementAssertion.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import de.gematik.rbellogger.RbelConverter;
@@ -31,22 +29,16 @@ import de.gematik.rbellogger.testutil.RbelElementAssertion;
 import de.gematik.test.tiger.common.data.config.tigerproxy.DirectReverseProxyInfo;
 import de.gematik.test.tiger.common.data.config.tigerproxy.TigerProxyConfiguration;
 import de.gematik.test.tiger.common.data.config.tigerproxy.TigerProxyModifierDescription;
-import de.gematik.test.tiger.proxy.TigerProxy;
 import de.gematik.test.tiger.proxy.handler.RbelBinaryModifierPlugin;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import kong.unirest.core.Unirest;
 import lombok.Data;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 @Slf4j
@@ -104,10 +96,10 @@ class TestTigerProxyBinaryModification {
               tigerProxy.getRbelMessagesList(), new FileWriter("target/pcapReplayerPop.html"));
       await()
           .atMost(5, TimeUnit.SECONDS)
-          .until(() -> tigerProxy.getRbelMessages().size() >= 7);
+          .until(() -> tigerProxy.getMessages().size() >= 7);
 
       try {
-        RbelElementAssertion.assertThat(tigerProxy.getRbelMessages().getFirst())
+        RbelElementAssertion.assertThat(tigerProxy.getMessageHistory().getFirst())
             .andPrintTree()
             .asString()
             .contains("my.modified_43243434343@message_sss");
@@ -116,7 +108,7 @@ class TestTigerProxyBinaryModification {
             .extractChildWithPath("$.pop3Arguments")
             .hasStringContentEqualTo("22");
       } catch (AssertionError e) {
-        tigerProxy.getRbelMessages().stream()
+        tigerProxy.getMessages().stream()
             .map(RbelElement::printTreeStructure)
             .forEach(log::info);
 

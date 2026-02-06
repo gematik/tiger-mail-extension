@@ -66,8 +66,8 @@ class Pop3PerformanceTest extends AbstractTigerProxyTest {
               localTigerProxy.waitForAllCurrentMessagesToBeParsed();
               log.info(
                   "Currently having {} messages locally",
-                  localTigerProxy.getRbelLogger().getMessageHistory().size());
-              return localTigerProxy.getRbelLogger().getMessageHistory().stream()
+                  localTigerProxy.getRbelLogger().getMessages().size());
+              return localTigerProxy.getRbelLogger().getMessages().stream()
                       .filter(el -> el.getConversionPhase() == RbelConversionPhase.COMPLETED)
                       .count()
                   >= 104;
@@ -75,10 +75,10 @@ class Pop3PerformanceTest extends AbstractTigerProxyTest {
     localTigerProxy.waitForAllCurrentMessagesToBeParsed();
     log.info(
         "All messages parsed, now having {} messages locally",
-        localTigerProxy.getRbelLogger().getMessageHistory().size());
+        localTigerProxy.getRbelLogger().getMessages().size());
     Optional.of(localTigerProxy)
         .map(TigerProxy::getRbelLogger)
-        .map(RbelLogger::getMessageHistory)
+        .map(RbelLogger::getMessages)
         .map(List::copyOf)
         .orElseGet(Collections::emptyList);
     log.info("All messages processed");

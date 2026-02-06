@@ -21,12 +21,14 @@
 package de.gematik.test.tiger.lib.rbel;
 
 import de.gematik.rbellogger.RbelLogger;
+import de.gematik.rbellogger.RbelMessageHistory;
 import de.gematik.rbellogger.captures.RbelFileReaderCapturer;
 import de.gematik.rbellogger.configuration.RbelConfiguration;
 import de.gematik.rbellogger.data.RbelElement;
 import de.gematik.rbellogger.file.RbelFileWriter;
 import de.gematik.rbellogger.util.IRbelMessageListener;
 import de.gematik.rbellogger.util.RbelMessagesSupplier;
+import de.gematik.test.tiger.DoNothingSupplier;
 import de.gematik.test.tiger.LocalProxyRbelMessageListener;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -45,7 +47,7 @@ import lombok.val;
 public class LocalProxyRbelMessageListenerTestAdapter {
 
   private final LocalProxyRbelMessageListener localProxyRbelMessageListener;
-  private final Deque<RbelElement> validatableMessagesMock;
+  private final NavigableMap<Long, RbelElement> validatableMessagesMock;
 
   public LocalProxyRbelMessageListenerTestAdapter() {
     this.localProxyRbelMessageListener =
@@ -57,17 +59,23 @@ public class LocalProxyRbelMessageListenerTestAdapter {
               }
 
               @Override
-              public Deque<RbelElement> getRbelMessages() {
-                return validatableMessagesMock;
+              public RbelMessageHistory.Facade getMessageHistory() {
+                return new MockHistoryFacade(validatableMessagesMock);
               }
             });
-    this.validatableMessagesMock = new ArrayDeque<>();
+    this.validatableMessagesMock = new TreeMap<>();
   }
 
+  public void clearMockMessagesList() {
+    localProxyRbelMessageListener.clearValidatableRbelMessages();
+    validatableMessagesMock.clear();
+  }
+
+  public void addMessage(RbelElement element) {
+    validatableMessagesMock.put(element.getSequenceNumber().get(), element);
+  }
 
   public void addMessages(Collection<RbelElement> elements) {
-    validatableMessagesMock.addAll(elements);
+    elements.forEach(this::addMessage);
   }
-
-
 }

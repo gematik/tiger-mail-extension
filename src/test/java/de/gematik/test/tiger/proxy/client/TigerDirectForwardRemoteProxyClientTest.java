@@ -89,7 +89,7 @@ class TigerDirectForwardRemoteProxyClientTest extends AbstractNonHttpTest {
         },
         (requestCalls, responseCalls, serverCalled) -> {
           assertThat(serverCalled.get()).isEqualTo(1);
-          var messages = new ArrayList<>(tigerRemoteProxyClient.get().getRbelMessages());
+          var messages = new ArrayList<>(tigerRemoteProxyClient.get().getMessages());
           if (messages.size() > 2) {
             messages.forEach(
                 message -> System.out.println("content: " + message.getRawStringContent()));
