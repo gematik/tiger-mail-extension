@@ -99,9 +99,8 @@ public class RbelSmtpCommandConverter extends RbelConverterPlugin {
       RbelElement element, RbelSmtpCommand command, RbelConversionExecutor context) {
     if (command != RbelSmtpCommand.EHLO && command != RbelSmtpCommand.HELO) {
       var previousMessage =
-          context.findPreviousMessageInSameConnectionAs(
-              element,
-              e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
+          getPreviousMessage(element, context)
+          .filter(e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
       if (previousMessage.isPresent()) {
         var message = previousMessage.get();
         if (!(message.hasFacet(RbelSmtpCommandFacet.class)

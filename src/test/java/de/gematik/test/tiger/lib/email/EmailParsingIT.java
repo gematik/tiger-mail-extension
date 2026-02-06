@@ -245,7 +245,7 @@ class EmailParsingIT {
   }
 
   void assertPopMessageSequenceCorrect(TigerTestEnvMgr tigerTestEnvMgr) {
-    List<String> messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelMessages().stream()
+    List<String> messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getMessages().stream()
             .filter(EmailParsingIT::hasEmailFacet)
             .map(RbelElement::getRawStringContent).toList();
     var beforeEmail = messages.subList(0, 12);
@@ -329,10 +329,10 @@ class EmailParsingIT {
 
       await()
           .atMost(5, TimeUnit.SECONDS)
-          .until(() -> tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelMessages().size() == 3);
+          .until(() -> tigerTestEnvMgr.getLocalTigerProxyOrFail().getMessages().size() == 3);
       tigerTestEnvMgr.getLocalTigerProxyOrFail().waitForAllCurrentMessagesToBeParsed();
       List<RbelElement> messages =
-          tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelMessages().stream().toList();
+          tigerTestEnvMgr.getLocalTigerProxyOrFail().getMessages().stream().toList();
       assertThat(messages).hasSize(3); // server ready + capa command + response from capa
       assertThat(messages.get(1))
           .extractChildWithPath("$.pop3Command")
@@ -704,7 +704,7 @@ class EmailParsingIT {
                     tigerTestEnvMgr
                         .getLocalTigerProxyOrFail()
                         .getRbelLogger()
-                        .getMessageHistory()
+                        .getMessages()
                         .stream()
                         .filter(EmailParsingIT::hasEmailFacet)
                         .count();
@@ -714,7 +714,7 @@ class EmailParsingIT {
               size -> size == expectedMessages);
     } catch (ConditionTimeoutException e) {
       var messages =
-          tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessageHistory().stream()
+          tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessages().stream()
               .filter(EmailParsingIT::hasEmailFacet)
               .toList();
       messages.stream().map(RbelElement::printTreeStructure).forEach(System.out::println);

@@ -154,7 +154,7 @@ public abstract class AbstractNonHttpTest {
                           + ", serverCalled="
                           + serverConnectionsOpenend.get()
                           + ", rbelMsgs="
-                          + getTigerProxy().getRbelMessages().size()
+                          + getTigerProxy().getMessages().size()
                           + ")");
                   interactionsVerificationCallback.acceptThrows(
                       handlerCalledRequest, handlerCalledResponse, serverConnectionsOpenend);
@@ -163,7 +163,7 @@ public abstract class AbstractNonHttpTest {
         log.error("Exception while executing test", e);
         log.error(
             "Found messages: \n\n{}",
-            getTigerProxy().getRbelMessages().stream()
+            getTigerProxy().getMessages().stream()
                 .map(RbelElement::printTreeStructureWithoutColors)
                 .collect(Collectors.joining("\n\n\n\n")));
         throw e;
