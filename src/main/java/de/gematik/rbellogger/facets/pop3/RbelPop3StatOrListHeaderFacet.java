@@ -31,6 +31,6 @@ public record RbelPop3StatOrListHeaderFacet(RbelElement count, RbelElement size)
 
   @Override
   public RbelMultiMap<RbelElement> getChildElements() {
-    return new RbelMultiMap<RbelElement>().with("count", count).with("size", size);
+    return new RbelMultiMap<RbelElement>().withSkipIfNull("count", count).withSkipIfNull("size", size);
   }
 }
