@@ -618,7 +618,7 @@ class EmailParsingIT {
           .until(
               () -> {
                 var messages =
-                    tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessageList();
+                    tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessagesByOrder();
                 log.info("Currently {} messages", messages.size());
                 return messages.stream()
                         .filter(EmailParsingIT::hasSmtpData)
@@ -635,7 +635,7 @@ class EmailParsingIT {
                     == numberOfMails;
               });
     } catch (ConditionTimeoutException e) {
-      var messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessageList();
+      var messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessagesByOrder();
       messages.stream().map(RbelElement::printTreeStructure).forEach(System.out::println);
       throw e;
     }
