@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 @ConverterInfo(onlyActivateFor = "pop3")
@@ -52,7 +53,8 @@ public class RbelPop3ResponseConverter extends RbelConverterPlugin {
   public static final byte[] OK_SPACE_PREFIX = "+OK ".getBytes();
   public static final byte[] ERR_PREFIX = "-ERR ".getBytes();
   public static final byte[] OK_PREFIX = "+OK\r\n".getBytes();
-  public static final byte[] SPACE_PREFIX = "+ ".getBytes();
+  public static final byte[] PLUS_SPACE_PREFIX = "+ ".getBytes();
+  public static final byte[] PLUS_LINE = "+\r\n".getBytes();
 
   @Override
   public RbelConversionPhase getPhase() {
@@ -70,16 +72,23 @@ public class RbelPop3ResponseConverter extends RbelConverterPlugin {
               element.setUsedBytes(length);
               element.addFacet(new RbelResponseFacet(facet.getStatus().getRawStringContent()));
             },
-            () ->
-                element
-                    .getFacet(TracingMessagePairFacet.class)
-                    .ifPresent(
-                        pair -> {
-                          if (pair.getRequest().hasFacet(RbelPop3CommandFacet.class)) {
-                            pair.getRequest().removeFacetsOfType(TracingMessagePairFacet.class);
-                            pair.getResponse().removeFacetsOfType(TracingMessagePairFacet.class);
-                          }
-                        }));
+            () -> {
+              if (element.getContent().startsWith("+".getBytes(StandardCharsets.UTF_8))
+                  || element.getContent().startsWith(ERR_PREFIX)) {
+                log.atTrace()
+                    .addArgument(() -> StringUtils.abbreviate(element.getRawStringContent(), 100))
+                    .log("POP3 Response could not be parsed: \n{}");
+              }
+              element
+                  .getFacet(TracingMessagePairFacet.class)
+                  .ifPresent(
+                      pair -> {
+                        if (pair.getRequest().hasFacet(RbelPop3CommandFacet.class)) {
+                          pair.getRequest().removeFacetsOfType(TracingMessagePairFacet.class);
+                          pair.getResponse().removeFacetsOfType(TracingMessagePairFacet.class);
+                        }
+                      });
+            });
   }
 
   public static class RbelPop3BodyConverter extends RbelConverterPlugin {
@@ -111,7 +120,8 @@ public class RbelPop3ResponseConverter extends RbelConverterPlugin {
     return array.startsWith(OK_SPACE_PREFIX)
         || array.startsWith(OK_PREFIX)
         || array.startsWith(ERR_PREFIX)
-        || array.startsWith(SPACE_PREFIX);
+        || array.startsWith(PLUS_SPACE_PREFIX)
+        || array.startsWith(PLUS_LINE);
   }
 
   private Optional<RbelContent> getCompleteResponse(
@@ -172,15 +182,16 @@ public class RbelPop3ResponseConverter extends RbelConverterPlugin {
 
   private static int findAuthLinesEndIndex(RbelElement element) {
     int index = 0;
-    while (element.getContent().startsWith(SPACE_PREFIX, index)) {
-      index = element.getContent().indexOf(EmailConversionUtils.CRLF_BYTES, index);
+    RbelContent content = element.getContent();
+    while (content.startsWith(PLUS_SPACE_PREFIX, index) || content.startsWith(PLUS_LINE, index)) {
+      index = content.indexOf(EmailConversionUtils.CRLF_BYTES, index);
       if (index >= 0) {
         index += EmailConversionUtils.CRLF_BYTES.length;
       } else {
         return index;
       }
     }
-    return element.getContent().indexOf(EmailConversionUtils.CRLF_BYTES, index);
+    return content.indexOf(EmailConversionUtils.CRLF_BYTES, index);
   }
 
   private static boolean isFirstResponse(RbelElement element, RbelConversionExecutor context) {

@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.StringTokenizer;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 @ConverterInfo(onlyActivateFor = "pop3")
@@ -51,7 +52,7 @@ public class RbelPop3CommandConverter extends RbelConverterPlugin {
   @Override
   public void consumeElement(final RbelElement element, final RbelConversionExecutor context) {
     buildPop3CommandFacet(element, context)
-        .ifPresent(
+        .ifPresentOrElse(
             pair -> {
               var facet = pair.getLeft();
               var length = pair.getRight();
@@ -59,6 +60,11 @@ public class RbelPop3CommandConverter extends RbelConverterPlugin {
               element.setUsedBytes(length);
               element.addFacet(
                   new RbelRequestFacet(facet.getCommand().getRawStringContent(), true));
+            },
+            () -> {
+              log.atTrace()
+                  .addArgument(() -> StringUtils.abbreviate(element.getRawStringContent(), 100))
+                  .log("Could not parse POP3 command:\n{}");
             });
   }
 
@@ -76,7 +82,8 @@ public class RbelPop3CommandConverter extends RbelConverterPlugin {
     if (command != RbelPop3Command.CAPA) {
       var previousMessage =
           getPreviousMessage(element, context)
-              .filter(e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
+              .filter(
+                  e -> e.hasFacet(RbelRequestFacet.class) || e.hasFacet(RbelResponseFacet.class));
       if (previousMessage.isPresent()) {
         var message = previousMessage.get();
         if (!(message.hasFacet(RbelPop3CommandFacet.class)
