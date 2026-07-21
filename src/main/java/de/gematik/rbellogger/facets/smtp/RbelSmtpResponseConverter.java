@@ -34,6 +34,8 @@ import de.gematik.rbellogger.util.RbelContent;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import de.gematik.test.tiger.proxy.exceptions.TigerRoutingErrorFacet;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -57,6 +59,21 @@ public class RbelSmtpResponseConverter extends RbelConverterPlugin {
 
   @Override
   public void consumeElement(final RbelElement element, final RbelConversionExecutor context) {
+    context.waitForAllElementsBeforeGivenToBeParsed(element);
+    if (element.getParentNode() == null
+        && element.hasFacet(TigerRoutingErrorFacet.class)
+        && context
+        .findPreviousMessageInSameConnectionAs(
+            element, prev -> prev.getFacet(RbelSmtpCommandFacet.class).isPresent())
+        .isPresent()) {
+      context.removeMessage(element);
+      if (log.isTraceEnabled()) {
+        log.trace(
+            "Ignoring tiger routing error in SMTP connection",
+            element.getFacetOrFail(TigerRoutingErrorFacet.class).getException());
+      }
+      return;
+    }
     buildSmtpResponseFacet(element)
         .ifPresent(
             facetAndLength -> {

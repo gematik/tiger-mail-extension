@@ -2,9 +2,20 @@
 
 # Release Notes tiger-mail-extension
 
+## Release 4.3.3
+
+### Bugfixes
+
+* TGRMAIL-6: Fix situation when POP3 AUTH response overtakes AUTH command.
+  Also allow trailing whitespace in LIST/STAT response headers.
+
+### Features
+
+* TGR-2174: remove routing errors from POP3/SMTP connections
+
 ## Release 4.1.12
 
-## Features
+### Features
 
 * TGR-1995: add automatic release pipeline triggered from tiger pipeline
 

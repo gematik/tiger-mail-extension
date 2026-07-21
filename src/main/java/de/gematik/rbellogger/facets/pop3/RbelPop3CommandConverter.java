@@ -29,6 +29,8 @@ import de.gematik.rbellogger.converter.ConverterInfo;
 import de.gematik.rbellogger.data.RbelElement;
 import de.gematik.rbellogger.data.core.RbelRequestFacet;
 import de.gematik.rbellogger.data.core.RbelResponseFacet;
+import de.gematik.rbellogger.data.core.TracingMessagePairFacet;
+import de.gematik.rbellogger.facets.timing.RbelMessageTimingFacet;
 import de.gematik.rbellogger.util.RbelContent;
 
 import java.nio.charset.StandardCharsets;
@@ -60,12 +62,57 @@ public class RbelPop3CommandConverter extends RbelConverterPlugin {
               element.setUsedBytes(length);
               element.addFacet(
                   new RbelRequestFacet(facet.getCommand().getRawStringContent(), true));
+              pairAuthWithUnpairedPrecedingResponse(element, context, facet);
             },
             () -> {
-              log.atTrace()
-                  .addArgument(() -> StringUtils.abbreviate(element.getRawStringContent(), 100))
-                  .log("Could not parse POP3 command:\n{}");
+              if (log.isTraceEnabled()
+                  && doesNotLookLikePop3Response(element)) {
+                log.atTrace()
+                    .addArgument(() -> StringUtils.abbreviate(element.getRawStringContent(), 100))
+                    .log("POP3 request could not be parsed:\n{}");
+              }
             });
+  }
+
+  private static boolean doesNotLookLikePop3Response(RbelElement element) {
+    return element.getParentNode() == null
+        && !element.getContent().startsWith(RbelPop3ResponseConverter.PLUS_PREFIX)
+        && !element.getContent().startsWith(RbelPop3ResponseConverter.ERR_PREFIX);
+  }
+
+  // Sometimes, the AUTH response can overtake the AUTH request due to the PLUS lines
+  // In that case, we have to pair them after the AUTH command is parsed
+  private static void pairAuthWithUnpairedPrecedingResponse(
+      RbelElement element, RbelConversionExecutor context, RbelPop3CommandFacet facet) {
+    facet
+        .getCommand()
+        .seekValue()
+        .filter(RbelPop3Command.AUTH::equals)
+        .flatMap(
+            auth ->
+                context.findPreviousMessageInSameConnectionAs(
+                    element,
+                    prev ->
+                        prev.hasFacet(RbelResponseFacet.class)
+                            && !prev.hasFacet(TracingMessagePairFacet.class)
+                            && isOlderThan(element, prev)
+                            && (prev.getContent().startsWith(RbelPop3ResponseConverter.PLUS_LINE)
+                                || prev.getContent()
+                                    .startsWith(RbelPop3ResponseConverter.PLUS_SPACE_PREFIX))))
+        .ifPresent(prev -> prev.addFacet(new TracingMessagePairFacet(prev, element)));
+  }
+
+  private static boolean isOlderThan(RbelElement element, RbelElement prev) {
+    return prev.getFacet(RbelMessageTimingFacet.class)
+        .filter(
+            prevTime ->
+                element
+                    .getFacet(RbelMessageTimingFacet.class)
+                    .filter(
+                        thisTime ->
+                            prevTime.getTransmissionTime().isAfter(thisTime.getTransmissionTime()))
+                    .isPresent())
+        .isPresent();
   }
 
   private Optional<Pair<RbelPop3CommandFacet, Integer>> buildPop3CommandFacet(

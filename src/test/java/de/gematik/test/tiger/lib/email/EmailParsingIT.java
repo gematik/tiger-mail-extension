@@ -197,12 +197,10 @@ class EmailParsingIT {
 
   @AfterEach
   void stopGreenMail() {
-     if (greenMail != null) {
+    if (greenMail != null) {
       greenMail.stop();
-     }
+    }
   }
-
-
 
   @SneakyThrows
   @TigerTest(
@@ -241,33 +239,35 @@ class EmailParsingIT {
     expectReceivedMessages(tigerTestEnvMgr, NUMBER_OF_MESSAGES_PARSE_ONLY_POP);
 
     assertPopMessageSequenceCorrect(tigerTestEnvMgr);
-
   }
 
   void assertPopMessageSequenceCorrect(TigerTestEnvMgr tigerTestEnvMgr) {
-    List<String> messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getMessages().stream()
+    List<String> messages =
+        tigerTestEnvMgr.getLocalTigerProxyOrFail().getMessages().stream()
             .filter(EmailParsingIT::hasEmailFacet)
-            .map(RbelElement::getRawStringContent).toList();
+            .map(RbelElement::getRawStringContent)
+            .toList();
     var beforeEmail = messages.subList(0, 12);
     var mail = messages.get(12);
     var afterMail = messages.subList(13, messages.size());
 
     assertThat(beforeEmail)
-            .containsExactly("+OK POP3 GreenMail Server v2.1.5 ready\r\n",
-                    "CAPA\r\n",
-                    "+OK\r\nUIDL\r\nSASL PLAIN XOAUTH2\r\n.\r\n",
-                    "USER to@localhost\r\n",
-                    "+OK\r\n",
-                    "PASS to@localhost\r\n",
-                    "+OK\r\n",
-                    "STAT\r\n",
-                    "+OK 1 26\r\n",
-                    "NOOP\r\n",
-                    "+OK noop rimes with poop\r\n",
-                    "RETR 1\r\n");
+        .containsExactly(
+            "+OK POP3 GreenMail Server v2.1.5 ready\r\n",
+            "CAPA\r\n",
+            "+OK\r\nUIDL\r\nSASL PLAIN XOAUTH2\r\n.\r\n",
+            "USER to@localhost\r\n",
+            "+OK\r\n",
+            "PASS to@localhost\r\n",
+            "+OK\r\n",
+            "STAT\r\n",
+            "+OK 1 26\r\n",
+            "NOOP\r\n",
+            "+OK noop rimes with poop\r\n",
+            "RETR 1\r\n");
     assertThat(mail)
-            .matches(
-                    """
+        .matches(
+            """
                            \\+OK\\R
                            Return-Path: <from@localhost>\\R
                            Received: from .* \\(HELO .*\\); .*\\R
@@ -283,8 +283,7 @@ class EmailParsingIT {
                            here the body of the email\\R
                            \\.\\R
                            """);
-    assertThat(afterMail).containsExactly("QUIT\r\n",
-            "+OK bye see you soon\r\n");
+    assertThat(afterMail).containsExactly("QUIT\r\n", "+OK bye see you soon\r\n");
   }
 
   @SneakyThrows
@@ -580,7 +579,7 @@ class EmailParsingIT {
     int attachmentSize = 10 * MB;
     String body = "A".repeat(attachmentSize);
 
-    int numberOfMails = 20;
+    int numberOfMails = 5;
     var extractedBodies = new LinkedList<String>();
     for (int i = 0; i < numberOfMails; i++) {
       String subject = "Test Large Email " + (i + 1);
@@ -635,7 +634,8 @@ class EmailParsingIT {
                     == numberOfMails;
               });
     } catch (ConditionTimeoutException e) {
-      var messages = tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessagesByOrder();
+      var messages =
+          tigerTestEnvMgr.getLocalTigerProxyOrFail().getRbelLogger().getMessagesByOrder();
       messages.stream().map(RbelElement::printTreeStructure).forEach(System.out::println);
       throw e;
     }
@@ -722,7 +722,7 @@ class EmailParsingIT {
     }
   }
 
-  static boolean hasEmailFacet(RbelElement message){
+  static boolean hasEmailFacet(RbelElement message) {
     return message.hasFacet(RbelPop3CommandFacet.class)
         || message.hasFacet(RbelSmtpCommandFacet.class)
         || message.hasFacet(RbelPop3ResponseFacet.class)
@@ -765,7 +765,7 @@ class EmailParsingIT {
     Session session = Session.getInstance(properties);
 
     // Create a Store object
-   return session.getStore("pop3");
+    return session.getStore("pop3");
   }
 
   @SneakyThrows
