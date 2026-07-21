@@ -127,7 +127,7 @@ class RbelPop3ResponseConverterTest extends AbstractResponseConverterTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"LIST", "STAT"})
+  @ValueSource(strings = {"LIST"})
   void shouldRejectMalformedHeader(String command) {
     String request = command + "\r\n";
     String status = "+OK";

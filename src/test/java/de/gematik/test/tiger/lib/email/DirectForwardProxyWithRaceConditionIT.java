@@ -129,6 +129,41 @@ public class DirectForwardProxyWithRaceConditionIT {
 
   @SneakyThrows
   @Test
+  public void pop3_authResponseOvertakesAuthCommand() {
+    val replayer =
+        PcapReplayer.writeReplay(
+            List.of(
+                server(
+                    "+OK <0c6eafb4.1781872527187@GVTSN043> POP3 server (KOM-LE Clientmodul) ready\r\n"),
+                client("CAPA\r\n"),
+                server(
+                    "+OK\r\n" + "TOP\r\n" + "USER\r\n" + "SASL PLAIN\r\n" + "UIDL\r\n" + ".\r\n"),
+                server("+\r\n"),
+                client("AUTH PLAIN\r\n"),
+                client(
+                    "AGFydi1ydS1pb3AtdGlnZXItc2VjdTExMkBhcnYua2ltLnRlbGVtYXRpay10ZXN0IzEwLjMwLjguNjo5OTUjTA==\r\n"),
+                server("+OK Welcome arv-ru-iop-tiger-secu112@arv.kim.telematik-test\r\n"),
+                client("STAT\r\n"),
+                server("+OK 1 9385 \r\n"),
+                client("LIST\r\n"),
+                server("+OK 1 9385\n"
+                    + "1 9385\r\n"
+                    + ".\r\n")));
+    val tigerProxy =
+        replayer.replayWithDirectForwardUsing(
+            new TigerProxyConfiguration().setActivateRbelParsingFor(List.of("pop3", "mime")));
+
+    final String html = RbelHtmlRenderer.render(tigerProxy.getRbelMessagesList());
+    Files.write(new File("target/pop3Replay.html").toPath(), html.getBytes());
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() ->
+            tigerProxy.getRbelMessagesList().stream()
+                .filter(DirectForwardProxyWithRaceConditionIT::isPop3Message).count() == 9);
+  }
+
+  @SneakyThrows
+  @Test
   public void pop3_capaPrecedesServerReadyMessage() {
     val replayer =
         PcapReplayer.writeReplay(
