@@ -27,7 +27,7 @@
 
     <groupId>de.gematik.test</groupId>
     <artifactId>tiger-mail-extension</artifactId>
-    <version>4.4.5</version>
+    <version>4.5.0</version>
     <packaging>jar</packaging>
     <name>Tiger Mail Extension</name>
     <description>An extension for the Tiger test framework which adds support for monitoring and parsing of email protocols  and email contents (POP, SMTP, MIME).</description>
@@ -84,10 +84,10 @@
         <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <sonar.language>java</sonar.language>
-        <version.java>17</version.java>
+        <version.java>21</version.java>
         <version.spotless-maven-plugin>2.44.3</version.spotless-maven-plugin>
         <version.spotless.google-java-format>1.18.1</version.spotless.google-java-format>
-        <version.tiger>4.4.5</version.tiger>
+        <version.tiger>4.5.0</version.tiger>
         <version.dss>6.2</version.dss>
     </properties>
 
@@ -166,6 +166,13 @@
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok-maven-plugin</artifactId>
                 <version>1.18.20.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok</artifactId>
+                        <version>1.18.48</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <goals>

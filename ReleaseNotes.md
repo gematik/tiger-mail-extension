@@ -2,6 +2,10 @@
 
 # Release Notes tiger-mail-extension
 
+# Release 5.0.0
+## Breaking Changes
+* TGR-2351: Migrate tiger to JDK 21
+
 ## Release 4.3.3
 
 ### Bugfixes
