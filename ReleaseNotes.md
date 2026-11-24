@@ -6,6 +6,15 @@
 ## Breaking Changes
 * TGR-2351: Migrate tiger to JDK 21
 
+* TGRMAIL-8: use renovate instead of dependabot for dependency updates
+* TGRMAIL-10: update pom for Jandex
+
+## Bugfixes
+* TGR-2328: Fix parsing of POP3 RETR/TOP responses and SMTP DATA commands in live traffic with Tiger 5.0
+  (the mail body is read from the content of the message instead of `RbelContent.getBaseContent()`),
+  and stream the decryption of AES-GCM encrypted messages
+
+
 ## Release 4.3.3
 
 ### Bugfixes

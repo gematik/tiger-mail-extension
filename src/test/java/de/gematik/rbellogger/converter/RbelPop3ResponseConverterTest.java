@@ -261,6 +261,42 @@ class RbelPop3ResponseConverterTest extends AbstractResponseConverterTest {
   }
 
   @ParameterizedTest
+  @ValueSource(ints = {1, 7, 64, 1000})
+  void shouldConvertMultilineResponseOfContentMadeOfManyParts(int partSize) {
+    String body = ".blablabla\r\n.bubl\r\nfoobar\r\n.\r\nblabla\r\n";
+    String input = "+OK foobar foobar\r\n" + duplicateDotsAtLineBegins(body) + "\r\n.\r\n";
+
+    convertToRbelElement("+OK greeting\r\n");
+    convertToRbelElement("RETR 1\r\n");
+    RbelElement element = convertToRbelElement(inPartsOf(partSize, input));
+
+    RbelElementAssertion.assertThat(element)
+        .extractChildWithPath("$.pop3Status")
+        .hasStringContentEqualTo("+OK")
+        .andTheInitialElement()
+        .extractChildWithPath("$.pop3Header")
+        .hasStringContentEqualTo("foobar foobar")
+        .andTheInitialElement()
+        .extractChildWithPath("$.pop3Body")
+        .hasStringContentEqualTo(body);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 7, 64, 1000})
+  void shouldConvertMultilineResponseWithoutStuffedDotsOfContentMadeOfManyParts(int partSize) {
+    String body = "Subject: test\r\n\r\nfirst line\r\nsecond line\r\n";
+    String input = "+OK foobar foobar\r\n" + body + "\r\n.\r\n";
+
+    convertToRbelElement("+OK greeting\r\n");
+    convertToRbelElement("CAPA\r\n");
+    RbelElement element = convertToRbelElement(inPartsOf(partSize, input));
+
+    RbelElementAssertion.assertThat(element)
+        .extractChildWithPath("$.pop3Body")
+        .hasStringContentEqualTo(body);
+  }
+
+  @ParameterizedTest
   @ValueSource(
       strings = {
         "+OK foobar foobar\r", //      missing LF

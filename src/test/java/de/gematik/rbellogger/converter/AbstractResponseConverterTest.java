@@ -26,7 +26,9 @@ import de.gematik.rbellogger.configuration.RbelConfiguration;
 import de.gematik.rbellogger.data.RbelElement;
 import de.gematik.rbellogger.data.RbelMessageMetadata;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
+import de.gematik.rbellogger.util.RbelContent;
 import de.gematik.rbellogger.util.RbelSocketAddress;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -58,5 +60,26 @@ class AbstractResponseConverterTest {
     return converter.parseMessage(
         input.getBytes(StandardCharsets.UTF_8),
         new RbelMessageMetadata().withSender(sender).withReceiver(recipient));
+  }
+
+  /**
+   * Live traffic arrives as a content that is made of many small parts (the chunks of the
+   * connection), not as one array.
+   */
+  static RbelContent inPartsOf(int partSize, String input) {
+    byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
+    var parts = new ArrayList<RbelContent>();
+    for (int from = 0; from < bytes.length; from += partSize) {
+      parts.add(RbelContent.of(java.util.Arrays.copyOfRange(bytes, from, Math.min(bytes.length, from + partSize))));
+    }
+    return RbelContent.concat(parts);
+  }
+
+  RbelElement convertToRbelElement(RbelContent input) {
+    var sender = RbelSocketAddress.create("host1", 1);
+    var receiver = RbelSocketAddress.create("host2", 2);
+    return converter.parseMessage(
+        RbelElement.builder().content(input).build(),
+        new RbelMessageMetadata().withSender(sender).withReceiver(receiver));
   }
 }
