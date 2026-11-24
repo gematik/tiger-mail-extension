@@ -61,7 +61,7 @@ public class EmailConversionUtils {
   public static RbelElement parseMailBody(
       RbelElement element, List<RbelContent> lines, int startLine) {
     if (lines.size() > startLine + 1) {
-      var body = extractBodyAndRemoveStuffedDots(lines, startLine);
+      var body = extractBodyAndRemoveStuffedDots(element.getContent(), lines, startLine);
       return RbelElement.builder().content(body).parentNode(element).build();
     }
     return null;
@@ -72,9 +72,8 @@ public class EmailConversionUtils {
   }
 
   private static RbelContent extractBodyAndRemoveStuffedDots(
-      List<RbelContent> lines, int startLine) {
-    RbelContent baseContent = lines.get(0).getBaseContent();
-    assert lines.stream().allMatch(line -> line.getBaseContent() == baseContent);
+      RbelContent baseContent, List<RbelContent> lines, int startLine) {
+    // the lines are the consecutive lines at the start of the content of the message
     var bodyLines =
         getMiddleLines(lines, startLine).map(EmailConversionUtils::removeStuffedDot).toList();
     int bodyLength = computeTotalLength(bodyLines.stream());
@@ -97,10 +96,7 @@ public class EmailConversionUtils {
   }
 
   public static RbelContent mergeLines(List<RbelContent> lines) {
-    RbelContent content =
-        RbelContent.builder()
-            .content(lines.stream().map(RbelContent::toByteArray).toList())
-            .build();
+    RbelContent content = RbelContent.concat(lines);
     // last CRLF needs to be cut off because it belongs to the CRLF_DOT_CRLF sequence
     return content.subArray(0, content.size() - CRLF_BYTES.length);
   }

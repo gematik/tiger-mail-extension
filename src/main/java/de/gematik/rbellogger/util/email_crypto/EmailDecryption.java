@@ -26,7 +26,6 @@ import de.gematik.rbellogger.key.RbelKeyManager;
 import de.gematik.rbellogger.util.RbelContent;
 import de.gematik.rbellogger.util.email_crypto.elliptic_curve.BcException;
 import de.gematik.rbellogger.util.email_crypto.elliptic_curve.ParseException;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -34,9 +33,11 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Optional;
 import javax.crypto.*;
 import javax.crypto.spec.GCMParameterSpec;
@@ -48,7 +49,6 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.DecoderException;
-import org.apache.commons.lang3.ArrayUtils;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Util;
@@ -70,8 +70,9 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 public class EmailDecryption {
 
   private static final String OID_AES256_GCM = "2.16.840.1.101.3.4.1.46";
+  private static final int STREAM_BUFFER_SIZE = 64 * 1024;
 
-  public static Optional<byte[]> decrypt(RbelContent message, RbelKeyManager keyManager)
+  public static Optional<RbelContent> decrypt(RbelContent message, RbelKeyManager keyManager)
       throws CMSException {
     var oAuthEnv = new CMSAuthEnvelopedData(message.toInputStream());
     AlgorithmIdentifier algCms = getAlgorithm(oAuthEnv);
@@ -81,7 +82,7 @@ public class EmailDecryption {
     return decryptDefault(message.toInputStream(), keyManager);
   }
 
-  private static Optional<byte[]> decryptDefault(InputStream message, RbelKeyManager keyManager)
+  private static Optional<RbelContent> decryptDefault(InputStream message, RbelKeyManager keyManager)
       throws CMSException {
     CMSEnvelopedData cmsEnvelopedData = new CMSEnvelopedData(message);
     Collection<RecipientInformation> recipients =
@@ -90,9 +91,10 @@ public class EmailDecryption {
         recipients,
         keyManager,
         (recipient, privateKey) ->
-            recipient.getContent(
-                new JceKeyTransEnvelopedRecipient(privateKey)
-                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)));
+            RbelContent.of(
+                recipient.getContent(
+                    new JceKeyTransEnvelopedRecipient(privateKey)
+                        .setProvider(BouncyCastleProvider.PROVIDER_NAME))));
   }
 
   private static Optional<PrivateKey> findMatchingKey(
@@ -113,10 +115,11 @@ public class EmailDecryption {
   }
 
   private interface DecryptFunction {
-    byte[] decrypt(RecipientInformation recipient, PrivateKey privateKey) throws CMSException;
+    RbelContent decrypt(RecipientInformation recipient, PrivateKey privateKey)
+        throws CMSException;
   }
 
-  private static Optional<byte[]> decryptIfKeyForRecipientFound(
+  private static Optional<RbelContent> decryptIfKeyForRecipientFound(
       Collection<RecipientInformation> recipients,
       RbelKeyManager keyManager,
       DecryptFunction decryptFunction)
@@ -132,7 +135,7 @@ public class EmailDecryption {
     return Optional.empty();
   }
 
-  private static Optional<byte[]> decryptOidAes256Gcm(
+  private static Optional<RbelContent> decryptOidAes256Gcm(
       CMSAuthEnvelopedData oAuthEnv, AlgorithmIdentifier algorithm, RbelKeyManager keyManager)
       throws CMSException {
     var recipients = oAuthEnv.getRecipientInfos().getRecipients();
@@ -144,14 +147,14 @@ public class EmailDecryption {
                 oAuthEnv, (KeyTransRecipientInformation) recipient, algorithm, privateKey));
   }
 
-  private static byte[] decryptOidAes256Gcm(
+  private static RbelContent decryptOidAes256Gcm(
       CMSAuthEnvelopedData oAuthEnv,
       KeyTransRecipientInformation recipient,
       AlgorithmIdentifier authEncAlg,
       PrivateKey privateKey) {
     byte[] plainSymKey = extractPlainSymKey(recipient, privateKey);
     byte[] pNonceValue = extractNonceValue(authEncAlg);
-    byte[] pSymEncoded = extractEncKeyData(oAuthEnv);
+    RbelContent pSymEncoded = extractEncKeyData(oAuthEnv);
     byte[] pMac = oAuthEnv.getMac();
     if (checkExistenceOfPMacInEncValue(pSymEncoded, pMac)) {
       throw new RbelDecryptionException(
@@ -162,10 +165,9 @@ public class EmailDecryption {
   }
 
   private static boolean checkExistenceOfPMacInEncValue(
-      final byte[] pSymEncoded, final byte[] pMac) {
-    int pMacLength = pMac.length;
-    byte[] subarraySymEncoded =
-        ArrayUtils.subarray(pSymEncoded, pSymEncoded.length - pMacLength, pSymEncoded.length);
+      final RbelContent pSymEncoded, final byte[] pMac) {
+    int size = pSymEncoded.size();
+    byte[] subarraySymEncoded = pSymEncoded.toByteArray(Math.max(0, size - pMac.length), size);
     return Arrays.equals(subarraySymEncoded, pMac);
   }
 
@@ -185,10 +187,10 @@ public class EmailDecryption {
     throw new RbelDecryptionException("This PKCS7-Content has not a valid nonce value!");
   }
 
-  private static byte[] extractEncKeyData(final CMSAuthEnvelopedData oAuthEnv) {
+  private static RbelContent extractEncKeyData(final CMSAuthEnvelopedData oAuthEnv) {
     try {
       ContentInfo cInfo = oAuthEnv.toASN1Structure();
-      if (cInfo == null) return new byte[0];
+      if (cInfo == null) return RbelContent.of(new byte[0]);
 
       if (cInfo.getContent() instanceof DLSequence seq) {
         return extractEncKeyData(seq);
@@ -203,7 +205,7 @@ public class EmailDecryption {
     }
   }
 
-  private static byte[] extractEncKeyData(BERSequence seq) throws IOException {
+  private static RbelContent extractEncKeyData(BERSequence seq) throws IOException {
     for (int i = 0; i < seq.size(); i++) {
       ASN1Encodable encTmp = seq.getObjectAt(i);
       if (encTmp instanceof BERSequence seq2) {
@@ -216,7 +218,8 @@ public class EmailDecryption {
     throw new RbelDecryptionException("Could not extract encoded key data");
   }
 
-  private static Optional<byte[]> getAccumulatedOctets(BERSequence seq) throws IOException {
+  private static Optional<RbelContent> getAccumulatedOctets(BERSequence seq)
+      throws IOException {
     for (int i = 0; i < seq.size(); i++) {
       ASN1Encodable encTmp2 = seq.getObjectAt(i);
       if (encTmp2 instanceof org.bouncycastle.asn1.BERTaggedObject tagObj) {
@@ -226,7 +229,8 @@ public class EmailDecryption {
     return Optional.empty();
   }
 
-  private static Optional<byte[]> getAccumulatedOctets(BERTaggedObject tagObj) throws IOException {
+  private static Optional<RbelContent> getAccumulatedOctets(BERTaggedObject tagObj)
+      throws IOException {
     ASN1Primitive asn1Prim =
         ASN1Util.parseContextBaseUniversal(
                 tagObj, tagObj.getTagNo(), tagObj.isExplicit(), BERTags.SEQUENCE)
@@ -234,25 +238,25 @@ public class EmailDecryption {
 
     if (asn1Prim instanceof BERSequence berSeq) {
       Enumeration<DEROctetString> berOcts = berSeq.getObjects();
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      // keep the chunks as they are, they are only joined lazily instead of being copied
+      List<RbelContent> chunks = new ArrayList<>();
       while (berOcts.hasMoreElements()) {
-        var octets = berOcts.nextElement().getOctets();
-        bos.write(octets, 0, octets.length);
+        chunks.add(RbelContent.of(berOcts.nextElement().getOctets()));
       }
-      return Optional.of(bos.toByteArray());
+      return Optional.of(chunks.isEmpty() ? RbelContent.of(new byte[0]) : RbelContent.concat(chunks));
     } else {
       return Optional.empty();
     }
   }
 
-  private static byte[] extractEncKeyData(DLSequence seq) {
+  private static RbelContent extractEncKeyData(DLSequence seq) {
     for (int i = 0; i < seq.size(); i++) {
       ASN1Encodable encTmp = seq.getObjectAt(i);
       if (encTmp instanceof DLSequence seq2) {
         for (int j = 0; j < seq2.size(); j++) {
           ASN1Encodable encTmp2 = seq2.getObjectAt(j);
           if (encTmp2 instanceof DLTaggedObject tagObj) {
-            return ((DEROctetString) tagObj.getBaseObject()).getOctets();
+            return RbelContent.of(((DEROctetString) tagObj.getBaseObject()).getOctets());
           }
         }
       }
@@ -330,19 +334,29 @@ public class EmailDecryption {
     }
   }
 
-  private static byte[] decryptSymEncodedWithMac(
-      byte[] pSymEncoded, byte[] pMac, byte[] pNonceValue, byte[] plainSymKey) {
-    // Append EncValue with Mac
-    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-      outputStream.write(pSymEncoded);
-      outputStream.write(pMac);
-      byte[] cipherTextWithMac = outputStream.toByteArray();
-
+  private static RbelContent decryptSymEncodedWithMac(
+      RbelContent pSymEncoded, byte[] pMac, byte[] pNonceValue, byte[] plainSymKey) {
+    try {
       GCMParameterSpec spec2 = new GCMParameterSpec(16 * 8, pNonceValue);
       SecretKey keySym = new SecretKeySpec(plainSymKey, "AES");
       Cipher cipher2 = Cipher.getInstance("AES/GCM/NoPadding");
       cipher2.init(Cipher.DECRYPT_MODE, keySym, spec2);
-      return cipher2.doFinal(cipherTextWithMac);
+
+      // The cipher expects the MAC appended to the encrypted value: stream both into it instead of
+      // copying them into one large array first.
+      List<RbelContent> plainText = new ArrayList<>();
+      var buffer = new byte[STREAM_BUFFER_SIZE];
+      try (InputStream encrypted = pSymEncoded.toInputStream()) {
+        int read;
+        while ((read = encrypted.read(buffer)) != -1) {
+          var part = cipher2.update(buffer, 0, read);
+          if (part != null) {
+            plainText.add(RbelContent.of(part));
+          }
+        }
+      }
+      plainText.add(RbelContent.of(cipher2.doFinal(pMac)));
+      return RbelContent.concat(plainText);
     } catch (IOException
         | NoSuchAlgorithmException
         | NoSuchPaddingException

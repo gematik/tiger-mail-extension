@@ -31,6 +31,7 @@ import de.gematik.rbellogger.data.RbelMessageMetadata;
 import de.gematik.rbellogger.facets.smtp.RbelSmtpCommand;
 import de.gematik.rbellogger.renderer.RbelHtmlRenderer;
 import de.gematik.rbellogger.util.EmailConversionUtils;
+import de.gematik.rbellogger.util.RbelContent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -156,6 +157,35 @@ class RbelSmtpCommandConverterTest {
         .andTheInitialElement()
         .doesNotHaveChildWithPath("$.smtpArguments")
         .andTheInitialElement()
+        .extractChildWithPath("$.smtpBody")
+        .hasStringContentEqualTo(body);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 7, 64, 1000})
+  void shouldConvertDataCommandOfContentMadeOfManyParts(int partSize) {
+    String body = ".blablabla\r\n.bubl\r\nfoobar\r\n.\r\nblabla\r\n";
+    String input = "DATA\r\n" + EmailConversionUtils.duplicateDotsAtLineBegins(body) + "\r\n.\r\n";
+
+    RbelElement element =
+        convertToRbelElement(AbstractResponseConverterTest.inPartsOf(partSize, input));
+
+    RbelElementAssertion.assertThat(element)
+        .extractChildWithPath("$.smtpBody")
+        .hasStringContentEqualTo(body);
+  }
+
+  @Test
+  void shouldConvertLargeDataCommandOfContentMadeOfManyParts() {
+    String line = "A".repeat(76) + "\r\n";
+    // a mail: header, empty line and then about 4.5 MB in 60,000 lines
+    String body = "Subject: large mail\r\n\r\n" + line.repeat(60_000);
+    String input = "DATA\r\n" + body + "\r\n.\r\n";
+
+    RbelElement element =
+        convertToRbelElement(AbstractResponseConverterTest.inPartsOf(64 * 1024, input));
+
+    RbelElementAssertion.assertThat(element)
         .extractChildWithPath("$.smtpBody")
         .hasStringContentEqualTo(body);
   }
@@ -311,5 +341,13 @@ class RbelSmtpCommandConverterTest {
     return converter.parseMessage(
         input.getBytes(StandardCharsets.UTF_8),
         new RbelMessageMetadata().withSender(sender).withReceiver(recipient));
+  }
+
+  private RbelElement convertToRbelElement(RbelContent input) {
+    return converter.parseMessage(
+        RbelElement.builder().content(input).build(),
+        new RbelMessageMetadata()
+            .withSender(RbelSocketAddress.create("host1", 1))
+            .withReceiver(RbelSocketAddress.create("host2", 2)));
   }
 }
